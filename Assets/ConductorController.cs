@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,10 +12,15 @@ public class ConductorController : MonoBehaviour
     float prevTime;
     Vector2 cur, prev, pprev;
     float prevDistance, curDistance;
-    float prevSpeed;
     bool isBeat;
     bool isAsc;
     bool isDirty;
+    
+    private enum BeatState {Undefined, First, First_One, First_Two, Second, Third, Third_One, Third_Two, Forth, Forth_One};
+    BeatState curState, prevState;
+    Vector2 central;
+    
+
     AudioSource _click;
 
     void Start ()
@@ -23,11 +29,15 @@ public class ConductorController : MonoBehaviour
         isBeat = false;
         isAsc = false;
         isDirty = false;
+
+        curState = BeatState.Undefined;
+        prevState = BeatState.Undefined;
     }
 
     void Update()
     {
         Calc();
+        
         if (OnBeat()) {
             Click();
         }
@@ -43,41 +53,77 @@ public class ConductorController : MonoBehaviour
     private void Calc ()
     {
         var now = Time.time;
-        if (now - prevTime < 0.3) return;
-        if (Vector2.Distance(prev, cur) < 0.05) return;
         if (!isDirty) return;
+        var vec_x = cur.x - prev.x;
+        var vec_y = cur.y - prev.y;
+        var err = 0.05f;
 
-        var curSpeed = curDistance / (now - prevTime);
+        Debug.Log(curState.ToString() + ", " + prevState.ToString());
 
-        // (!asc -> asc) beat (!asc)
-        if ( (isAsc && curSpeed < prevSpeed) && 
-            (((pprev.x - prev.x) * (prev.x - cur.x) < 0) ||
-             ((pprev.y - prev.y) * (prev.y - cur.y) < 0)) )
+        if (Math.Abs(vec_y) > err)
         {
-            Debug.Log("accelerating");
-            isBeat = true;
-            isAsc = false;
+            if (prevState == BeatState.Forth && curState == BeatState.Forth && vec_y > 0)
+            {
+                central = cur;
+                curState = BeatState.Forth_One;    
+            }
+            else if (prevState == BeatState.First && curState == BeatState.First && (vec_y < -err || vec_x > err))
+            {
+                curState = BeatState.First_One;
+            }
+            else if (prevState == BeatState.First_One && curState == BeatState.First_One && vec_y > 0)
+            {
+                curState = BeatState.First_Two;
+            }
+            else if (prevState == BeatState.First_Two && curState == BeatState.First_Two && vec_y < 0 && vec_x > 0)
+            {
+                curState = BeatState.Second;
+            }
+            else if (prevState == BeatState.Second && curState == BeatState.Second && vec_y < 0 && cur.x > central.x)
+            {
+                curState = BeatState.Third;
+            }
+            else if (prevState == BeatState.Third && curState == BeatState.Third && vec_y < 0)
+            {
+                curState = BeatState.Third_One;
+            }
+            else if (prevState == BeatState.Third_One && curState == BeatState.Third_One && vec_y > 0)
+            {
+                curState = BeatState.Third_Two;
+            }
+            else if (prevState == BeatState.Third_Two && curState == BeatState.Third_Two && vec_y < 0)
+            {
+                curState = BeatState.Forth;
+            }
+            else if (curState == BeatState.Undefined)
+            {
+                curState = BeatState.Forth;
+            }
+            prev = cur;
+            isDirty = false;
         }
-        else if (!isAsc && curSpeed > prevSpeed)
+        
+        if (Math.Abs(vec_x) > err)
         {
-            Debug.Log("de-accelerating");
-            isAsc = true;
+            
+            if (prevState == BeatState.Forth_One && curState == BeatState.Forth_One && vec_x > 0)
+            {
+                curState = BeatState.First;
+            }
+
+            prev = cur;
+            isDirty = false;
         }
-
-
-        pprev = prev;
-        prev = cur;
-        prevSpeed = curSpeed;
-        prevTime = now;
-        isDirty = false;
     }
 
     private bool OnBeat ()
     {
-        if (isBeat)
+        if (curState != prevState)
         {
-            isBeat = false;
-            return true;
+            prevState = curState;
+            if (curState == BeatState.First || curState == BeatState.Second || curState == BeatState.Third || curState == BeatState.Forth)
+                return true;
+            return false;
         }
 
         return false;
