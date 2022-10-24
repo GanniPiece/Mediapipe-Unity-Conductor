@@ -15,6 +15,7 @@ public class ConductorController : MonoBehaviour
     bool isBeat;
     bool isAsc;
     bool isDirty;
+    public GameObject dot;
     
     private enum BeatState {Undefined, First, First_One, First_Two, Second, Third, Third_One, Third_Two, Forth, Forth_One};
     BeatState curState, prevState;
@@ -32,6 +33,8 @@ public class ConductorController : MonoBehaviour
 
         curState = BeatState.Undefined;
         prevState = BeatState.Undefined;
+
+        dot.SetActive(false);
     }
 
     void Update()
@@ -40,6 +43,7 @@ public class ConductorController : MonoBehaviour
         
         if (OnBeat()) {
             Click();
+            StartCoroutine(Flash());
         }
     }
 
@@ -48,6 +52,13 @@ public class ConductorController : MonoBehaviour
         if (_click.isPlaying)
             _click.Stop();
         _click.Play();
+    }
+
+    private IEnumerator Flash ()
+    {
+        dot.SetActive(true);
+        yield return new WaitForSeconds(0.25f);
+        dot.SetActive(false);
     }
 
     private void Calc ()
